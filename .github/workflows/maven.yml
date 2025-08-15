@@ -1,52 +1,56 @@
-# This workflow automatically tests new commits and pull requests as they come in.
-# Note that this does not upload any artifacts, you will need to compile mcMMO manually
-# if you wish to create the actual jar.
-name: Compile and test
+# This workflow compiles mcMMO, runs tests, and produces a working jar artifact.
+name: Compile, Test & Build mcMMO Jar
 
 on:
-  # We run our tests whenever the pom or a source file was touched.
-  # There is no need to run Maven when only the changelog was touched.
-  # We may also want to re-run this workflow when the workflow file itself
-  # was updated too.
+  # Trigger when source or pom changes
   push:
     paths:
-    - 'src/**'
-    - 'pom.xml'
-    - '.github/workflows/maven.yml'
+      - 'src/**'
+      - 'pom.xml'
+      - '.github/workflows/maven.yml'
 
-  # Whenever someone submits a new pull request which modified the pom or a source file,
-  # we want to ensure it compiles successfully and that all tests will pass.
+  # Trigger for pull requests touching source or pom
   pull_request:
     paths:
-    - 'src/**'
-    - 'pom.xml'
+      - 'src/**'
+      - 'pom.xml'
+
+  # Allow manual runs from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  compile:
-    name: Maven compiler
+  build:
+    name: Maven Build & Jar Artifact
     runs-on: ubuntu-latest
     steps:
 
-    # 1. Check out the current working tree
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # 1. Check out repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # 2. Setup Java 17 JDK (Adopt)
-    - name: Java 17 setup
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'adopt'
-        java-package: jdk
-        java-version: '17'
+      # 2. Setup Java 17 JDK (Adopt)
+      - name: Java 17 setup
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-package: jdk
+          java-version: '17'
 
-    # 3. Setup local Maven package cache to speed up building
-    - name: Cache Maven packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
+      # 3. Cache Maven dependencies
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
 
-    # 4. Build via Maven 
-    - name: Build via Maven
-      run: mvn verify -B --file pom.xml -DdisableXmlReport=true
+      # 4. Build with Maven (skip test reports but still run tests)
+      - name: Build via Maven
+        run: mvn clean package -B --file pom.xml -DdisableXmlReport=true
+
+      # 5. Upload final plugin jar (assuming Maven target dir)
+      - name: Upload mcMMO plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcMMO-plugin
+          path: target/*.jar
